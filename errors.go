@@ -17,4 +17,7 @@ var (
 
 	// ErrNoRowsFound is returned when no rows match the query criteria.
 	ErrNoRowsFound = errors.New("no rows found matching criteria")
+
+	// ErrDeleteLastColumn is returned when try to delete the last column.
+	ErrDeleteLastColumn = errors.New("unable to delete last column")
 )
