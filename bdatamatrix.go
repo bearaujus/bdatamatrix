@@ -100,12 +100,14 @@ type BDataMatrix interface {
 	//       - Column: Column to search in.
 	//       - Operator: Comparison operator (e.g., OperatorEquals, OperatorContains).
 	//       - CaseInsensitive: If true, comparison ignores letter case.
-	//       - Values: Values to compare against.
+	//       - Value: Value to compare against.
+	//       - Values: Values to compare against. (If both Value & Values are present, it will add Value as one of the Values)
 	//
 	// Returns:
 	//   - A new BDataMatrix with matching rows.
+	//   - A new BDataMatrix for not found value(s).
 	//   - An error if the specified column does not exist or no rows match.
-	FindRows(query FindRowsQuery) (BDataMatrix, []string, error)
+	FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, error)
 
 	// SortBy sorts the rows based on the specified header keys.
 	//
@@ -223,6 +225,7 @@ type BDataMatrix interface {
 	DeleteEmptyColumns() error
 	LenColumns() int
 	LenRows() int
+	DataMap() []map[string]string
 	Copy() BDataMatrix
 	Peek()
 }
@@ -550,6 +553,9 @@ const (
 )
 
 // FindRowsQuery specifies the criteria for searching rows.
+//
+// If both FindRowsQuery.Value and FindRowsQuery.Values present,
+// FindRowsQuery.Value will be added to be one of FindRowsQuery.Values entry.
 type FindRowsQuery struct {
 	// Column is the header name of the column to search.
 	Column string
@@ -557,38 +563,57 @@ type FindRowsQuery struct {
 	Operator Operator
 	// CaseInsensitive indicates whether the comparison should ignore letter case.
 	CaseInsensitive bool
+	// Value is a value to compare against.
+	Value string
 	// Values is a slice of values to compare against.
 	Values []string
 }
 
-func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, []string, error) {
-	idx, exists := t.headerIndex[query.Column]
-	if !exists {
-		return nil, nil, fmt.Errorf("%w: %s", ErrColumnNotFound, query.Column)
-	}
-	var (
-		matchedRows    [][]string
-		notFoundValues []string
-	)
-	for _, qVal := range query.Values {
-		var found bool
-		for _, row := range t.rows {
-			cellValue := row[idx]
-			if match(query.Operator, cellValue, qVal, query.CaseInsensitive) {
-				found = true
-				matchedRows = append(matchedRows, row)
-				break
-			}
-		}
-		if !found {
-			notFoundValues = append(notFoundValues, qVal)
-		}
-	}
-	nm, err := NewWithData(matchedRows, t.header...)
+const (
+	FindRowsNotFoundColumn_Entries = "entries"
+	FindRowsNotFoundColumn_Found   = "found"
+)
+
+func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, error) {
+	targets, err := t.GetColumn(query.Column)
 	if err != nil {
 		return nil, nil, err
 	}
-	return nm, notFoundValues, err
+	nf, err := New(FindRowsNotFoundColumn_Entries, FindRowsNotFoundColumn_Found)
+	if err != nil {
+		return nil, nil, err
+	}
+	if query.Value != "" {
+		query.Values = append(query.Values, query.Value)
+	}
+
+	matchedIndexesUnique := make(map[int]struct{})
+	for _, qVal := range query.Values {
+		var found bool
+		for i, target := range targets {
+			if match(query.Operator, target, qVal, query.CaseInsensitive) {
+				matchedIndexesUnique[i] = struct{}{}
+				found = true
+			}
+		}
+		if err = nf.AddRow(qVal, fmt.Sprint(found)); err != nil {
+			return nil, nil, err
+		}
+	}
+	if nf.LenRows() != 0 {
+		if err = nf.SortBy(FindRowsNotFoundColumn_Found, FindRowsNotFoundColumn_Entries); err != nil {
+			return nil, nil, err
+		}
+	}
+	var matchedIndexes []int
+	for idx := range matchedIndexesUnique {
+		matchedIndexes = append(matchedIndexes, idx)
+	}
+	nm, err := t.GetRows(matchedIndexes...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nm, nf, err
 }
 
 func (t *bDataMatrix) SortBy(keys ...string) error {
@@ -627,6 +652,18 @@ func (t *bDataMatrix) Data(withHeader bool) [][]string {
 		data = append(data, t.header)
 	}
 	data = append(data, t.rows...)
+	return data
+}
+
+func (t *bDataMatrix) DataMap() []map[string]string {
+	data := make([]map[string]string, t.LenRows())
+	for i, row := range t.rows {
+		obj := make(map[string]string)
+		for j, key := range t.header {
+			obj[key] = row[j]
+		}
+		data[i] = obj
+	}
 	return data
 }
 
@@ -741,20 +778,12 @@ func (t *bDataMatrix) ToTSV(withHeader bool) Output {
 }
 
 func (t *bDataMatrix) ToJSON(compact bool) Output {
-	data := make([]map[string]string, t.LenRows())
-	for i, row := range t.rows {
-		obj := make(map[string]string)
-		for j, key := range t.header {
-			obj[key] = row[j]
-		}
-		data[i] = obj
-	}
 	var output []byte
 	var err error
 	if compact {
-		output, err = json.Marshal(data)
+		output, err = json.Marshal(t.DataMap())
 	} else {
-		output, err = json.MarshalIndent(data, "", "  ")
+		output, err = json.MarshalIndent(t.DataMap(), "", "  ")
 	}
 	if err != nil {
 		return nil
@@ -763,15 +792,7 @@ func (t *bDataMatrix) ToJSON(compact bool) Output {
 }
 
 func (t *bDataMatrix) ToYAML() Output {
-	data := make([]map[string]string, t.LenRows())
-	for i, row := range t.rows {
-		obj := make(map[string]string)
-		for j, key := range t.header {
-			obj[key] = row[j]
-		}
-		data[i] = obj
-	}
-	output, err := yaml.Marshal(data)
+	output, err := yaml.Marshal(t.DataMap())
 	if err != nil {
 		return nil
 	}
