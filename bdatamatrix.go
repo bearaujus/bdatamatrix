@@ -570,16 +570,16 @@ type FindRowsQuery struct {
 }
 
 const (
-	FindRowsNotFoundColumn_Entries = "entries"
-	FindRowsNotFoundColumn_Found   = "found"
+	FindRowsQueryStatus_Entries       = "entries"
+	FindRowsQueryStatus_MeetCondition = "meet_condition"
 )
 
 func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, error) {
-	targets, err := t.GetColumn(query.Column)
+	cVals, err := t.GetColumn(query.Column)
 	if err != nil {
 		return nil, nil, err
 	}
-	nf, err := New(FindRowsNotFoundColumn_Entries, FindRowsNotFoundColumn_Found)
+	qs, err := New(FindRowsQueryStatus_Entries, FindRowsQueryStatus_MeetCondition)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -588,20 +588,53 @@ func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, e
 	}
 
 	matchedIndexesUnique := make(map[int]struct{})
-	for _, qVal := range query.Values {
-		var found bool
-		for i, target := range targets {
-			if match(query.Operator, target, qVal, query.CaseInsensitive) {
-				matchedIndexesUnique[i] = struct{}{}
-				found = true
+
+	if query.Operator == OperatorNotEquals {
+		// For each query value, record whether there is at least one row
+		// that is not equal to that value.
+		for _, qVal := range query.Values {
+			var found bool
+			for _, target := range cVals {
+				if match(query.Operator, target, qVal, query.CaseInsensitive) {
+					found = true
+					break
+				}
+			}
+			if err = qs.AddRow(qVal, fmt.Sprint(found)); err != nil {
+				return nil, nil, err
 			}
 		}
-		if err = nf.AddRow(qVal, fmt.Sprint(found)); err != nil {
-			return nil, nil, err
+		// For filtering, a row must be not equal to every query value.
+		for i, target := range cVals {
+			meetsAll := true
+			for _, qVal := range query.Values {
+				if !match(query.Operator, target, qVal, query.CaseInsensitive) {
+					meetsAll = false
+					break
+				}
+			}
+			if meetsAll {
+				matchedIndexesUnique[i] = struct{}{}
+			}
+		}
+	} else {
+		// For other operators, a row is selected if it meets the condition for any query value.
+		for _, qVal := range query.Values {
+			var found bool
+			for i, target := range cVals {
+				if match(query.Operator, target, qVal, query.CaseInsensitive) {
+					matchedIndexesUnique[i] = struct{}{}
+					found = true
+				}
+			}
+			if err = qs.AddRow(qVal, fmt.Sprint(found)); err != nil {
+				return nil, nil, err
+			}
 		}
 	}
-	if nf.LenRows() != 0 {
-		if err = nf.SortBy(FindRowsNotFoundColumn_Found, FindRowsNotFoundColumn_Entries); err != nil {
+
+	if qs.LenRows() != 0 {
+		if err = qs.SortBy(FindRowsQueryStatus_MeetCondition, FindRowsQueryStatus_Entries); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -613,7 +646,7 @@ func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, e
 	if err != nil {
 		return nil, nil, err
 	}
-	return nm, nf, err
+	return nm, qs, nil
 }
 
 func (t *bDataMatrix) SortBy(keys ...string) error {
@@ -847,23 +880,22 @@ func (o *outputData) String() string {
 // Utils
 // ---------------------------------------------------------------------------------------------------------------------
 
-func match(op Operator, cell, queryValue string, caseInsensitive bool) bool {
+func match(op Operator, cVal, qVal string, caseInsensitive bool) bool {
 	if caseInsensitive {
-		cell = strings.ToLower(cell)
-		queryValue = strings.ToLower(queryValue)
+		cVal = strings.ToLower(cVal)
+		qVal = strings.ToLower(qVal)
 	}
-
 	switch op {
 	case OperatorEquals:
-		return cell == queryValue
+		return cVal == qVal
 	case OperatorNotEquals:
-		return cell != queryValue
+		return cVal != qVal
 	case OperatorContains:
-		return strings.Contains(cell, queryValue)
+		return strings.Contains(cVal, qVal)
 	case OperatorStartsWith:
-		return strings.HasPrefix(cell, queryValue)
+		return strings.HasPrefix(cVal, qVal)
 	case OperatorEndsWith:
-		return strings.HasSuffix(cell, queryValue)
+		return strings.HasSuffix(cVal, qVal)
 	default:
 		return false
 	}
