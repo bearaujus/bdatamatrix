@@ -555,10 +555,10 @@ const (
 func (o Operator) String() string {
 	v, ok := map[Operator]string{
 		OperatorEquals:     "equals",
-		OperatorNotEquals:  "not equals",
+		OperatorNotEquals:  "not_equals",
 		OperatorContains:   "contains",
-		OperatorStartsWith: "starts with",
-		OperatorEndsWith:   "ends with",
+		OperatorStartsWith: "starts_with",
+		OperatorEndsWith:   "ends_with",
 	}[o]
 	if !ok {
 		return "unknown"
