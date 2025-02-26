@@ -552,6 +552,20 @@ const (
 	OperatorEndsWith
 )
 
+func (o Operator) String() string {
+	v, ok := map[Operator]string{
+		OperatorEquals:     "equals",
+		OperatorNotEquals:  "not equals",
+		OperatorContains:   "contains",
+		OperatorStartsWith: "starts with",
+		OperatorEndsWith:   "ends with",
+	}[o]
+	if !ok {
+		return "unknown"
+	}
+	return v
+}
+
 // FindRowsQuery specifies the criteria for searching rows.
 //
 // If both FindRowsQuery.Value and FindRowsQuery.Values present,
