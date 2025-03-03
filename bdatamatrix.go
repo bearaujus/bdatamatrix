@@ -12,221 +12,108 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// BDataMatrix defines the behavior for a data matrix.
+// BDataMatrix defines the behavior for a structured tabular data matrix.
 type BDataMatrix interface {
 	// AddRow appends a single row to the matrix.
-	//
-	// Parameters:
-	//   - values: A variadic list of strings representing a row.
-	//
-	// Returns:
-	//   - An error if the number of values does not match the header length.
 	AddRow(values ...string) error
 
 	// AddRows appends multiple rows to the matrix.
-	//
-	// Parameters:
-	//   - rows: A variadic list of rows, where each row is a slice of strings.
-	//
-	// Returns:
-	//   - An error if any row's length does not match the header length.
 	AddRows(rows ...[]string) error
 
-	// GetRow retrieves the row at the specified index.
-	//
-	// Parameters:
-	//   - index: The zero-based index of the row.
-	//
-	// Returns:
-	//   - The row as a slice of strings.
-	//   - An error if the index is out of range.
+	// GetRow retrieves a row by index.
 	GetRow(index int) ([]string, error)
 
-	// GetRows retrieves multiple rows specified by their indexes.
-	//
-	// Parameters:
-	//   - indexes: A variadic list of row indexes.
-	//
-	// Returns:
-	//   - A new BDataMatrix containing only the specified rows.
-	//   - An error if any index is out of range.
+	// GetRows retrieves multiple rows by indexes.
 	GetRows(indexes ...int) (BDataMatrix, error)
 
-	// GetColumn retrieves a column by header name.
-	//
-	// Parameters:
-	//   - key: The header name of the column.
-	//
-	// Returns:
-	//   - A slice of strings containing the values of the column.
-	//   - An error if the column does not exist.
+	// GetColumn retrieves a column by name.
 	GetColumn(key string) ([]string, error)
 
-	// GetColumns returns a new BDataMatrix containing only the specified columns.
-	//
-	// Parameters:
-	//   - keys: A variadic list of header names.
-	//
-	// Returns:
-	//   - A new BDataMatrix whose rows contain only the values from the specified columns.
-	//   - An error if any of the specified columns do not exist.
+	// GetColumns retrieves multiple columns by names.
 	GetColumns(keys ...string) (BDataMatrix, error)
 
-	// UpdateRow updates the row at the specified index with new values.
-	//
-	// Parameters:
-	//   - index: The zero-based index of the row to update.
-	//   - values: A variadic list of new values for the row.
-	//
-	// Returns:
-	//   - An error if the index is out of range or if the number of values does not match the header length.
+	// UpdateRow updates an existing row at the specified index.
 	UpdateRow(index int, values ...string) error
 
-	// DeleteRow removes the row at the specified index.
-	//
-	// Parameters:
-	//   - index: The zero-based index of the row to delete.
-	//
-	// Returns:
-	//   - An error if the index is out of range.
+	// DeleteRow removes a row at the specified index.
 	DeleteRow(index int) error
 
-	// FindRows returns a new BDataMatrix containing only the rows that match the given query.
-	// It searches in the column specified by query.Column and compares each row's value using
-	// query.Operator and query.CaseInsensitive. A row is included if any of the query.Values match.
-	//
-	// Parameters:
-	//   - query: A FindRowsQuery struct with fields:
-	//       - Column: Column to search in.
-	//       - Operator: Comparison operator (e.g., OperatorEquals, OperatorContains).
-	//       - CaseInsensitive: If true, comparison ignores letter case.
-	//       - Value: Value to compare against.
-	//       - Values: Values to compare against. (If both Value & Values are present, it will add Value as one of the Values)
-	//
-	// Returns:
-	//   - A new BDataMatrix with matching rows.
-	//   - A new BDataMatrix for not found value(s).
-	//   - An error if the specified column does not exist or no rows match.
-	FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, error)
+	// FindRows searches for rows matching a given query.
+	FindRows(query FindRowsQuery) (BDataMatrix, error)
 
-	// SortBy sorts the rows based on the specified header keys.
-	//
-	// Parameters:
-	//   - keys: A variadic list of header names to sort by.
-	//     If no keys are provided, the matrix is sorted by all header columns in order.
-	//
-	// Returns:
-	//   - An error if any of the specified columns do not exist.
+	// FindRowsWithHistories searches for rows matching a given query with histories.
+	FindRowsWithHistories(query FindRowsQuery) (BDataMatrix, BDataMatrix, error)
+
+	// SortBy sorts rows based on one or more column names.
 	SortBy(keys ...string) error
 
-	// Header returns the header row as a slice of strings.
-	//
-	// Returns:
-	//   - A []string representing the header.
+	// Header returns the header row of the matrix.
 	Header() []string
 
-	// Rows returns all rows (excluding the header) as a two-dimensional slice of strings.
-	//
-	// Returns:
-	//   - A [][]string containing all rows.
+	// Rows returns all rows of the matrix.
 	Rows() [][]string
 
-	// Data returns the full dataset as a two-dimensional slice of strings.
-	//
-	// Parameters:
-	//   - withHeader: If true, includes the header as the first row; otherwise, returns only the data rows.
-	//
-	// Returns:
-	//   - A [][]string where the first element is the header if withHeader is true, followed by data rows.
-	//   - If withHeader is false, only the data rows are returned.
-	//
-	// Example usage:
-	//
-	//	// Get the full dataset with the header included.
-	//	dataWithHeader := matrix.Data(true)
-	//
-	//	// Get only the data rows, excluding the header.
-	//	dataWithoutHeader := matrix.Data(false)
+	// Data returns the entire dataset with or without the header.
 	Data(withHeader bool) [][]string
 
-	// Clear removes all rows from the matrix while preserving the header.
-	//
-	// Example:
-	//   matrix.Clear()
+	// Clear removes all rows from the matrix.
 	Clear()
 
-	// Preview prints the matrix as a formatted table.
-	//
-	// Parameters:
-	//   - n: Total number of entry for previewing the current matrix.
-	//
-	// Returns:
-	//     +----+-------+-----+
-	//     | ID | Name  | Age |
-	//     +----+-------+-----+
-	//     | 1  | Alice | 30  |
-	//     | 2  | Bob   | 25  |
-	//     | 3  | alice | 28  |
-	//     +----+-------+-----+
+	// Preview displays the first N rows of the matrix.
 	Preview(n int)
 
-	// ToCSV exports the matrix in CSV format.
-	//
-	// Parameters:
-	//   - withHeader: If true, includes the header row in the output.
-	//
-	// Returns:
-	//   - An Output interface representing the CSV data.
+	// ToCSV exports the matrix to CSV format.
 	ToCSV(withHeader bool) Output
 
-	// ToTSV exports the matrix in TSV (tab-separated) format.
-	//
-	// Parameters:
-	//   - withHeader: If true, includes the header row in the output.
-	//
-	// Returns:
-	//   - An Output interface representing the TSV data.
+	// ToTSV exports the matrix to TSV format.
 	ToTSV(withHeader bool) Output
 
-	// ToYAML exports the matrix in YAML format.
-	//
-	// Returns:
-	//   - An Output interface representing the YAML data.
+	// ToYAML exports the matrix to YAML format.
 	ToYAML() Output
 
-	// ToJSON exports the matrix in JSON format.
-	//
-	// Parameters:
-	//   - compact: If false, the JSON output is pretty-printed; otherwise, it is compact.
-	//
-	// Returns:
-	//   - An Output interface representing the JSON data.
+	// ToJSON exports the matrix to JSON format.
 	ToJSON(compact bool) Output
 
-	// ToCustom exports the matrix using a custom separator.
-	//
-	// Parameters:
-	//   - withHeader: If true, includes the header row in the output.
-	//   - separator: The string to use as a separator between columns.
-	//
-	// Returns:
-	//   - An Output interface representing the custom-formatted data.
+	// ToCustom exports the matrix to a custom format using a specified separator.
 	ToCustom(withHeader bool, separator string) Output
 
-	// TODO: Add docs
-
+	// AddColumn adds a new column with an empty value for all rows.
 	AddColumn(key string) error
+
+	// AddColumns adds multiple new columns with empty values for all rows.
 	AddColumns(keys ...string) error
+
+	// AddColumnWithDefaultValue adds a column with a default value for all rows.
 	AddColumnWithDefaultValue(defaultValue, key string) error
+
+	// AddColumnsWithDefaultValue adds multiple columns with a default value for all rows.
 	AddColumnsWithDefaultValue(defaultValue string, keys ...string) error
+
+	// GetRowData retrieves a specific cell value from a row and column.
 	GetRowData(index int, key string) (string, error)
+
+	// UpdateRowColumn updates a specific cell value in a row and column.
 	UpdateRowColumn(index int, key string, value string) error
+
+	// DeleteColumn removes a column from the matrix.
 	DeleteColumn(key string) error
+
+	// DeleteEmptyColumns removes all empty columns from the matrix.
 	DeleteEmptyColumns() error
+
+	// LenColumns returns the number of columns in the matrix.
 	LenColumns() int
+
+	// LenRows returns the number of rows in the matrix.
 	LenRows() int
+
+	// DataMap returns the matrix as a slice of maps where keys are column names.
 	DataMap() []map[string]string
+
+	// Copy creates a deep copy of the matrix.
 	Copy() BDataMatrix
+
+	// Peek prints a preview of the matrix.
 	Peek()
 }
 
@@ -588,7 +475,7 @@ const (
 	FindRowsQueryStatus_MeetCondition = "meet_condition"
 )
 
-func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, error) {
+func (t *bDataMatrix) FindRowsWithHistories(query FindRowsQuery) (BDataMatrix, BDataMatrix, error) {
 	cVals, err := t.GetColumn(query.Column)
 	if err != nil {
 		return nil, nil, err
@@ -652,6 +539,9 @@ func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, e
 			return nil, nil, err
 		}
 	}
+	if len(matchedIndexesUnique) == 0 {
+		return nil, nil, fmt.Errorf("%w: no rows found where column '%s' matches criteria", ErrNoRowsFound, query.Column)
+	}
 	var matchedIndexes []int
 	for idx := range matchedIndexesUnique {
 		matchedIndexes = append(matchedIndexes, idx)
@@ -661,6 +551,55 @@ func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, BDataMatrix, e
 		return nil, nil, err
 	}
 	return nm, qs, nil
+}
+
+func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, error) {
+	cVals, err := t.GetColumn(query.Column)
+	if err != nil {
+		return nil, err
+	}
+	if query.Value != "" {
+		query.Values = append(query.Values, query.Value)
+	}
+
+	matchedIndexesUnique := make(map[int]struct{})
+
+	if query.Operator == OperatorNotEquals {
+		// For filtering, a row must be not equal to every query value.
+		for i, target := range cVals {
+			meetsAll := true
+			for _, qVal := range query.Values {
+				if !match(query.Operator, target, qVal, query.CaseInsensitive) {
+					meetsAll = false
+					break
+				}
+			}
+			if meetsAll {
+				matchedIndexesUnique[i] = struct{}{}
+			}
+		}
+	} else {
+		// For other operators, a row is selected if it meets the condition for any query value.
+		for _, qVal := range query.Values {
+			for i, target := range cVals {
+				if match(query.Operator, target, qVal, query.CaseInsensitive) {
+					matchedIndexesUnique[i] = struct{}{}
+				}
+			}
+		}
+	}
+	if len(matchedIndexesUnique) == 0 {
+		return nil, fmt.Errorf("%w: no rows found where column '%s' matches criteria", ErrNoRowsFound, query.Column)
+	}
+	var matchedIndexes []int
+	for idx := range matchedIndexesUnique {
+		matchedIndexes = append(matchedIndexes, idx)
+	}
+	nm, err := t.GetRows(matchedIndexes...)
+	if err != nil {
+		return nil, err
+	}
+	return nm, nil
 }
 
 func (t *bDataMatrix) SortBy(keys ...string) error {
@@ -747,27 +686,23 @@ func (t *bDataMatrix) Clear() {
 }
 
 func (t *bDataMatrix) Peek() {
-	t.Preview(10)
+	t.Preview(5)
 }
 
 func (t *bDataMatrix) Preview(n int) {
 	if n <= 0 {
 		n = 10
 	}
-	if n > t.LenRows() {
-		n = t.LenRows()
-	}
+	n = min(n, t.LenRows()) // Ensure n does not exceed total rows
 
-	// Calculate maximum width for each column.
+	// Calculate maximum width for each column relative to the first n rows.
 	widths := make([]int, t.LenColumns())
 	for i, h := range t.header {
 		widths[i] = len(h)
 	}
-	for _, row := range t.rows {
-		for i, cell := range row {
-			if len(cell) > widths[i] {
-				widths[i] = len(cell)
-			}
+	for i := 0; i < n; i++ { // Only iterate over the first n rows
+		for j, cell := range t.rows[i] {
+			widths[j] = max(widths[j], len(cell))
 		}
 	}
 
@@ -800,7 +735,6 @@ func (t *bDataMatrix) Preview(n int) {
 	if n < t.LenRows() {
 		fmt.Printf("...and %d more rows are not shown (out of %d total).\n", t.LenRows()-n, t.LenRows())
 	}
-
 }
 
 func (t *bDataMatrix) ToCSV(withHeader bool) Output {

@@ -278,7 +278,7 @@ func TestPreview(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	matrix.Preview()
+	matrix.Peek()
 
 	w.Close()
 	var buf bytes.Buffer
@@ -323,7 +323,7 @@ func TestToTSV(t *testing.T) {
 func TestToYAML(t *testing.T) {
 	matrix, _ := New("ID", "Name")
 	matrix.AddRow("1", "Alice")
-	output := matrix.ToYAML(true)
+	output := matrix.ToYAML()
 	yamlData := output.String()
 	var result []map[string]string
 	err := yaml.Unmarshal([]byte(yamlData), &result)
@@ -339,7 +339,7 @@ func TestToYAML(t *testing.T) {
 func TestToJSON(t *testing.T) {
 	matrix, _ := New("ID", "Name")
 	matrix.AddRow("1", "Alice")
-	output := matrix.ToJSON(true, false)
+	output := matrix.ToJSON(false)
 	jsonData := output.String()
 	var result []map[string]string
 	err := json.Unmarshal([]byte(jsonData), &result)
@@ -350,7 +350,7 @@ func TestToJSON(t *testing.T) {
 		t.Fatal("expected one JSON object")
 	}
 	// Test compact JSON output.
-	output = matrix.ToJSON(true, true)
+	output = matrix.ToJSON(true)
 	jsonData = output.String()
 	if strings.Contains(jsonData, "\n") {
 		t.Fatal("expected compact JSON without newlines")
