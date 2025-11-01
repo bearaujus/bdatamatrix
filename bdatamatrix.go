@@ -12,152 +12,252 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// BDataMatrix defines the behavior for a data matrix.
+// BDataMatrix defines the behavior for a structured tabular data matrix.
 type BDataMatrix interface {
 	// AddRow appends a single row to the matrix.
 	//
 	// Parameters:
-	//   - values: A variadic list of strings representing a row.
+	//   - values: The values for the row to be added.
 	//
 	// Returns:
-	//   - An error if the number of values does not match the header length.
+	//   - An error if writing fails.
 	AddRow(values ...string) error
 
 	// AddRows appends multiple rows to the matrix.
 	//
 	// Parameters:
-	//   - rows: A variadic list of rows, where each row is a slice of strings.
+	//   - values: The values for the multiple rows to be added.
 	//
 	// Returns:
-	//   - An error if any row's length does not match the header length.
+	//   - An error if writing fails.
 	AddRows(rows ...[]string) error
 
-	// GetRow retrieves the row at the specified index.
+	// GetRow retrieves a row by index.
 	//
 	// Parameters:
-	//   - index: The zero-based index of the row.
+	//   - index: The index of the row to retrieve.
 	//
 	// Returns:
-	//   - The row as a slice of strings.
-	//   - An error if the index is out of range.
+	// 	 - The value of row at the specified index.
+	//   - An error if query fails.
 	GetRow(index int) ([]string, error)
 
-	// GetRows retrieves multiple rows specified by their indexes.
+	// GetRows retrieves multiple rows by indexes.
 	//
 	// Parameters:
-	//   - indexes: A variadic list of row indexes.
+	//   - indexes: More than one index of the rows to retrieve.
 	//
 	// Returns:
-	//   - A new BDataMatrix containing only the specified rows.
-	//   - An error if any index is out of range.
+	// 	 - The value of rows at the specified indexes.
+	//   - An error if query fails.
 	GetRows(indexes ...int) (BDataMatrix, error)
 
-	// GetColumn retrieves a column by header name.
+	// GetColumn retrieves a column by name.
 	//
 	// Parameters:
-	//   - key: The header name of the column.
+	//   - key: The name of the column to retrieve.
 	//
 	// Returns:
-	//   - A slice of strings containing the values of the column.
-	//   - An error if the column does not exist.
+	// 	 - The value of column at the specified key.
+	//   - An error if query fails.
 	GetColumn(key string) ([]string, error)
 
-	// GetColumns returns a new BDataMatrix containing only the specified columns.
+	// GetColumns retrieves multiple columns by names.
 	//
 	// Parameters:
-	//   - keys: A variadic list of header names.
+	//   - key: The names of the columns to retrieve.
 	//
 	// Returns:
-	//   - A new BDataMatrix whose rows contain only the values from the specified columns.
-	//   - An error if any of the specified columns do not exist.
+	// 	 - The value of columns at the specified keys.
+	//   - An error if writing fails.
 	GetColumns(keys ...string) (BDataMatrix, error)
 
-	// UpdateRow updates the row at the specified index with new values.
+	// UpdateRow updates an existing row at the specified index.
 	//
 	// Parameters:
-	//   - index: The zero-based index of the row to update.
-	//   - values: A variadic list of new values for the row.
+	//   - index: The index of the row want to be updated.
+	//   - values: The value that want to be updated.
 	//
 	// Returns:
-	//   - An error if the index is out of range or if the number of values does not match the header length.
+	//   - An error if writing fails.
 	UpdateRow(index int, values ...string) error
 
-	// DeleteRow removes the row at the specified index.
+	// DeleteRow removes a row at the specified index.
 	//
 	// Parameters:
-	//   - index: The zero-based index of the row to delete.
+	//   - index: The index of the row want to be deleted.
 	//
 	// Returns:
-	//   - An error if the index is out of range.
+	//   - An error if writing fails.
 	DeleteRow(index int) error
 
-	// FindRows returns a new BDataMatrix containing only the rows that match the given query.
-	// It searches in the column specified by query.Column and compares each row's value using
-	// query.Operator and query.CaseInsensitive. A row is included if any of the query.Values match.
+	// FindRows searches for rows matching a given query.
 	//
 	// Parameters:
-	//   - query: A FindRowsQuery struct with fields:
-	//       - Column: Column to search in.
-	//       - Operator: Comparison operator (e.g., OperatorEquals, OperatorContains).
-	//       - CaseInsensitive: If true, comparison ignores letter case.
-	//       - Values: Values to compare against.
-	//
+	//   - query: Have struct FindRowsQuery need to be filled.
 	// Returns:
-	//   - A new BDataMatrix with matching rows.
-	//   - An error if the specified column does not exist or no rows match.
+	//   - The value based on parameter query.
+	//   - An error if query fails.
 	FindRows(query FindRowsQuery) (BDataMatrix, error)
 
-	// SortBy sorts the rows based on the specified header keys.
+	// SortByDesc sorts rows by descending based on one or more column names.
 	//
 	// Parameters:
-	//   - keys: A variadic list of header names to sort by.
-	//     If no keys are provided, the matrix is sorted by all header columns in order.
-	//
+	//   - keys : The names of the columns to sorting.
 	// Returns:
-	//   - An error if any of the specified columns do not exist.
-	SortBy(keys ...string) error
+	//   - An error if query fails.
+	SortByDesc(keys ...string) error
 
-	// Header returns the header row as a slice of strings.
+	// SortByAsc sorts rows by ascending based on one or more column names.
 	//
+	// Parameters:
+	//   - keys : The names of the columns to sorting.
 	// Returns:
-	//   - A []string representing the header.
+	//   - An error if query fails.
+	SortByAsc(keys ...string) error
+
+	// Header returns the header row of the matrix.
 	Header() []string
 
-	// Rows returns all rows (excluding the header) as a two-dimensional slice of strings.
-	//
-	// Returns:
-	//   - A [][]string containing all rows.
+	// Rows returns all rows of the matrix.
 	Rows() [][]string
 
-	// Data returns the full dataset as a two-dimensional slice of strings.
+	// Data returns the entire dataset with or without the header.
 	//
 	// Parameters:
-	//   - withHeader: If true, includes the header as the first row; otherwise, returns only the data rows.
-	//
+	//   - withHeader: Want return with header or not.
 	// Returns:
-	//   - A [][]string where the first element is the header if withHeader is true, followed by data rows.
-	//   - If withHeader is false, only the data rows are returned.
-	//
-	// Example usage:
-	//
-	//	// Get the full dataset with the header included.
-	//	dataWithHeader := matrix.Data(true)
-	//
-	//	// Get only the data rows, excluding the header.
-	//	dataWithoutHeader := matrix.Data(false)
+	//   - If param true, return data include header.
 	Data(withHeader bool) [][]string
 
-	// Clear removes all rows from the matrix while preserving the header.
-	//
-	// Example:
-	//   matrix.Clear()
+	// Clear removes all rows from the matrix.
 	Clear()
 
-	// Preview prints the matrix as a formatted table.
+	// ToCSV exports the matrix to CSV format.
 	//
-	// Example:
-	//   matrix.Preview()
-	//   Output:
+	// Parameters:
+	//   - withHeader: Want return with header or not.
+	// Returns:
+	//   - If param true, return csv data include header.
+	ToCSV(withHeader bool) Output
+
+	// ToTSV exports the matrix to TSV format.
+	//
+	// Parameters:
+	//   - withHeader: Want return with header or not.
+	// Returns:
+	//   - If param true, return TSV data include header.
+	ToTSV(withHeader bool) Output
+
+	// ToYAML exports the matrix to YAML format.
+	ToYAML() Output
+
+	// ToJSON exports the matrix to JSON format.
+	//
+	// Parameters:
+	//   - compact: Want return json data with format minified (compact) or not.
+	// Returns:
+	//   - If param true, return json data with format minified (compact). If param false, return json data with format pretty-printed.
+	ToJSON(compact bool) Output
+
+	// ToCustom exports the matrix to a custom format using a specified separator.
+	//
+	// Parameters:
+	//   - withHeader: Want return with header or not.
+	//   - separator: Anything separator that want to use.
+	// Returns:
+	//   - Data with custom format using a specified separator.
+	ToCustom(withHeader bool, separator string) Output
+
+	// AddColumn adds a new column with an empty value for all rows.
+	//
+	// Parameters:
+	//   - key: The naming of column want to be added.
+	//   - data: The value of the column.
+	//
+	// Returns:
+	//   - An error if writing fails.
+	AddColumn(key string, data ...string) error
+
+	// AddColumns adds multiple new columns with empty values for all rows.
+	//
+	// Parameters:
+	//   - key: The naming of columns want to be added.
+	//
+	// Returns:
+	//   - An error if writing fails.
+	AddColumns(keys ...string) error
+
+	// AddColumnWithDefaultValue adds a column with a default value for all rows.
+	//
+	// Parameters:
+	//   - defaultValue: Default value that want to be added on the new column.
+	//   - key: The naming of column want to be added.
+	//
+	// Returns:
+	//   - An error if writing fails.
+	AddColumnWithDefaultValue(defaultValue, key string) error
+
+	// AddColumnsWithDefaultValue adds multiple columns with a default value for all rows.
+	//
+	// Parameters:
+	//   - defaultValue: Default value that want to be added on the new column.
+	//   - keys: The naming of columns want to be added.
+	//
+	// Returns:
+	//   - An error if writing fails.
+	AddColumnsWithDefaultValue(defaultValue string, keys ...string) error
+
+	// GetRowData retrieves a specific cell value from a row and column.
+	//
+	// Parameters:
+	//   - index: The index of the row.
+	//   - key: The naming of columns.
+	//
+	// Returns:
+	//   - The value of the specific index row and column.
+	//   - An error if query fails.
+	GetRowData(index int, key string) (string, error)
+
+	// UpdateRowColumn updates a specific cell value in a row and column.
+	//
+	// Parameters:
+	//   - index: The index of the row that want to be updated.
+	//   - key: The naming of columns that want to be updated.
+	//
+	// Returns:
+	//   - An error if writing fails.
+	UpdateRowColumn(index int, key string, value string) error
+
+	// DeleteColumn removes a column from the matrix.
+	//
+	// Parameters:
+	//   - key: The naming of columns that want to be deleted.
+	//
+	// Returns:
+	//   - An error if writing fails.
+	DeleteColumn(key string) error
+
+	// DeleteEmptyColumns removes all empty columns from the matrix.
+	DeleteEmptyColumns() error
+
+	// ContainsValue checks whether a specific value exists within a given column in the matrix.
+	ContainsValue(key string, value string) (bool, error)
+
+	// LenColumns returns the number of columns in the matrix.
+	LenColumns() int
+
+	// LenRows returns the number of rows in the matrix.
+	LenRows() int
+
+	// DataMap returns the matrix as a slice of maps where keys are column names.
+	DataMap() []map[string]string
+
+	// Copy creates a deep copy of the matrix.
+	Copy() BDataMatrix
+
+	// Peek prints a preview for the first 5 rows from the matrix.
+	// Example output:
 	//     +----+-------+-----+
 	//     | ID | Name  | Age |
 	//     +----+-------+-----+
@@ -165,54 +265,18 @@ type BDataMatrix interface {
 	//     | 2  | Bob   | 25  |
 	//     | 3  | alice | 28  |
 	//     +----+-------+-----+
-	Preview()
+	Peek()
 
-	// ToCSV exports the matrix in CSV format.
-	//
-	// Parameters:
-	//   - withHeader: If true, includes the header row in the output.
-	//
-	// Returns:
-	//   - An Output interface representing the CSV data.
-	ToCSV(withHeader bool) Output
-
-	// ToTSV exports the matrix in TSV (tab-separated) format.
-	//
-	// Parameters:
-	//   - withHeader: If true, includes the header row in the output.
-	//
-	// Returns:
-	//   - An Output interface representing the TSV data.
-	ToTSV(withHeader bool) Output
-
-	// ToYAML exports the matrix in YAML format.
-	//
-	// Parameters:
-	//   - withHeader: If true, represents each row as an object with header keys.
-	//
-	// Returns:
-	//   - An Output interface representing the YAML data.
-	ToYAML(withHeader bool) Output
-
-	// ToJSON exports the matrix in JSON format.
-	//
-	// Parameters:
-	//   - withHeader: If true, each row is represented as an object with header keys.
-	//   - compact: If false, the JSON output is pretty-printed; otherwise, it is compact.
-	//
-	// Returns:
-	//   - An Output interface representing the JSON data.
-	ToJSON(withHeader, compact bool) Output
-
-	// ToCustom exports the matrix using a custom separator.
-	//
-	// Parameters:
-	//   - withHeader: If true, includes the header row in the output.
-	//   - separator: The string to use as a separator between columns.
-	//
-	// Returns:
-	//   - An Output interface representing the custom-formatted data.
-	ToCustom(withHeader bool, separator string) Output
+	// PeekN prints a preview for the first N rows from the matrix.
+	// Example output:
+	//     +----+-------+-----+
+	//     | ID | Name  | Age |
+	//     +----+-------+-----+
+	//     | 1  | Alice | 30  |
+	//     | 2  | Bob   | 25  |
+	//     | 3  | alice | 28  |
+	//     +----+-------+-----+
+	PeekN(n int)
 }
 
 // New create a new BDataMatrix with the provided headers.
@@ -242,7 +306,7 @@ type BDataMatrix interface {
 //	}
 //
 //	// Preview the matrix.
-//	matrix.Preview()
+//	matrix.Peek()
 //
 //	// Export as CSV (with header) and write to file.
 //	csvOut := matrix.ToCSV(true)
@@ -251,14 +315,11 @@ func New(keys ...string) (BDataMatrix, error) {
 	if len(keys) < 1 {
 		return nil, ErrEmptyHeader
 	}
-	headerIndex := make(map[string]int)
-	for i, c := range keys {
-		if _, exists := headerIndex[c]; exists {
-			return nil, fmt.Errorf("%w: %s", ErrDuplicateHeader, c)
-		}
-		headerIndex[c] = i
+	t := &bDataMatrix{header: keys}
+	if err := t.calculateHeaderIndex(); err != nil {
+		return nil, err
 	}
-	return &bDataMatrix{header: keys, headerIndex: headerIndex}, nil
+	return t, nil
 }
 
 // NewWithData creates a new BDataMatrix with the provided headers and initial data.
@@ -278,7 +339,7 @@ func New(keys ...string) (BDataMatrix, error) {
 //	}
 //
 //	// Preview the matrix.
-//	matrix.Preview()
+//	matrix.Peek()
 //
 //	// Export as JSON (compact format).
 //	jsonOut := matrix.ToJSON(true, true)
@@ -343,8 +404,8 @@ type bDataMatrix struct {
 }
 
 func (t *bDataMatrix) AddRow(values ...string) error {
-	if len(values) != len(t.header) {
-		return fmt.Errorf("row length (%d) does not match header length (%d)", len(values), len(t.header))
+	if len(values) != t.LenColumns() {
+		return fmt.Errorf("row length (%d) does not match header length (%d)", len(values), t.LenColumns())
 	}
 	t.rows = append(t.rows, values)
 	return nil
@@ -359,8 +420,70 @@ func (t *bDataMatrix) AddRows(rows ...[]string) error {
 	return nil
 }
 
+func (t *bDataMatrix) AddColumn(key string, data ...string) error {
+	return t.AddColumnWithValue(key, data...)
+}
+
+func (t *bDataMatrix) AddColumns(keys ...string) error {
+	return t.AddColumnsWithDefaultValue("", keys...)
+}
+
+func (t *bDataMatrix) AddColumnWithValue(key string, value ...string) error {
+	if _, exists := t.headerIndex[key]; exists {
+		return fmt.Errorf("%w: %s", ErrDuplicateHeader, key)
+	}
+	t.header = append(t.header, key)
+	if t.LenRows() < len(value) {
+		return fmt.Errorf("%w: %v", ErrRowIndexOutOfRange, t.LenRows())
+	}
+
+	if t.LenRows() > len(value) {
+		for i := range value {
+			t.rows[i] = append(t.rows[i], value[i])
+		}
+	}
+
+	if t.LenRows() == len(value) {
+		for i := range t.rows {
+			t.rows[i] = append(t.rows[i], value[i])
+		}
+	}
+	return t.calculateHeaderIndex()
+}
+
+func (t *bDataMatrix) AddColumnWithDefaultValue(defaultValue, key string) error {
+	if _, exists := t.headerIndex[key]; exists {
+		return fmt.Errorf("%w: %s", ErrDuplicateHeader, key)
+	}
+	t.header = append(t.header, key)
+	for i := range t.rows {
+		t.rows[i] = append(t.rows[i], defaultValue)
+	}
+	return t.calculateHeaderIndex()
+}
+
+func (t *bDataMatrix) AddColumnsWithDefaultValue(defaultValue string, keys ...string) error {
+	for _, key := range keys {
+		if err := t.AddColumnWithDefaultValue(defaultValue, key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *bDataMatrix) GetRowData(index int, key string) (string, error) {
+	idx, exists := t.headerIndex[key]
+	if !exists {
+		return "", fmt.Errorf("%w: %s", ErrColumnNotFound, key)
+	}
+	if index < 0 || index >= t.LenRows() {
+		return "", fmt.Errorf("%w: %d", ErrRowIndexOutOfRange, index)
+	}
+	return t.rows[index][idx], nil
+}
+
 func (t *bDataMatrix) GetRow(index int) ([]string, error) {
-	if index < 0 || index >= len(t.rows) {
+	if index < 0 || index >= t.LenRows() {
 		return nil, fmt.Errorf("%w: %d", ErrRowIndexOutOfRange, index)
 	}
 	return t.rows[index], nil
@@ -383,7 +506,7 @@ func (t *bDataMatrix) GetColumn(key string) ([]string, error) {
 	if !exists {
 		return nil, fmt.Errorf("%w: %s", ErrColumnNotFound, key)
 	}
-	column := make([]string, len(t.rows))
+	column := make([]string, t.LenRows())
 	for i, row := range t.rows {
 		column[i] = row[idx]
 	}
@@ -391,7 +514,7 @@ func (t *bDataMatrix) GetColumn(key string) ([]string, error) {
 }
 
 func (t *bDataMatrix) GetColumns(keys ...string) (BDataMatrix, error) {
-	newRows := make([][]string, len(t.rows))
+	newRows := make([][]string, t.LenRows())
 	for i, row := range t.rows {
 		newRow := make([]string, len(keys))
 		for j, key := range keys {
@@ -407,21 +530,86 @@ func (t *bDataMatrix) GetColumns(keys ...string) (BDataMatrix, error) {
 }
 
 func (t *bDataMatrix) UpdateRow(index int, values ...string) error {
-	if index < 0 || index >= len(t.rows) {
+	if index < 0 || index >= t.LenRows() {
 		return fmt.Errorf("%w: %d", ErrRowIndexOutOfRange, index)
 	}
-	if len(values) != len(t.header) {
-		return fmt.Errorf("row length (%d) does not match header length (%d)", len(values), len(t.header))
+	if len(values) != t.LenColumns() {
+		return fmt.Errorf("row length (%d) does not match header length (%d)", len(values), t.LenColumns())
 	}
 	t.rows[index] = values
 	return nil
 }
 
+func (t *bDataMatrix) UpdateRowColumn(index int, key string, value string) error {
+	idx, exists := t.headerIndex[key]
+	if !exists {
+		return fmt.Errorf("%w: %s", ErrColumnNotFound, key)
+	}
+	if index < 0 || index >= t.LenRows() {
+		return fmt.Errorf("%w: %d", ErrRowIndexOutOfRange, index)
+	}
+	t.rows[index][idx] = value
+	return nil
+}
+
 func (t *bDataMatrix) DeleteRow(index int) error {
-	if index < 0 || index >= len(t.rows) {
+	if index < 0 || index >= t.LenRows() {
 		return fmt.Errorf("%w: %d", ErrRowIndexOutOfRange, index)
 	}
 	t.rows = append(t.rows[:index], t.rows[index+1:]...)
+	return nil
+}
+
+func (t *bDataMatrix) DeleteColumn(key string) error {
+	idx, exists := t.headerIndex[key]
+	if !exists {
+		return fmt.Errorf("%w: %s", ErrColumnNotFound, key)
+	}
+	if t.LenColumns() == 1 {
+		return ErrDeleteLastColumn
+	}
+	newHeader := append(t.header[:idx], t.header[idx+1:]...)
+	newRows := make([][]string, t.LenRows())
+	for i, row := range t.rows {
+		newRows[i] = append(row[:idx], row[idx+1:]...)
+	}
+	t.header = newHeader
+	t.rows = newRows
+	_ = t.calculateHeaderIndex()
+	return nil
+}
+
+func (t *bDataMatrix) DeleteEmptyColumns() error {
+	nonEmptyColumns := make([]bool, t.LenColumns())
+	for _, row := range t.rows {
+		for i, val := range row {
+			if strings.TrimSpace(val) != "" {
+				nonEmptyColumns[i] = true
+			}
+		}
+	}
+	var newHeader []string
+	for i, col := range t.header {
+		if nonEmptyColumns[i] {
+			newHeader = append(newHeader, col)
+		}
+	}
+	if len(newHeader) == 0 {
+		return ErrDeleteLastColumn
+	}
+	newRows := make([][]string, t.LenRows())
+	for i, row := range t.rows {
+		var newRow []string
+		for j, val := range row {
+			if nonEmptyColumns[j] {
+				newRow = append(newRow, val)
+			}
+		}
+		newRows[i] = newRow
+	}
+	t.header = newHeader
+	t.rows = newRows
+	_ = t.calculateHeaderIndex()
 	return nil
 }
 
@@ -429,14 +617,31 @@ func (t *bDataMatrix) DeleteRow(index int) error {
 type Operator int
 
 const (
-	OperatorEquals Operator = iota
+	OperatorEquals Operator = iota + 1
 	OperatorNotEquals
 	OperatorContains
 	OperatorStartsWith
 	OperatorEndsWith
 )
 
+func (o Operator) String() string {
+	v, ok := map[Operator]string{
+		OperatorEquals:     "equals",
+		OperatorNotEquals:  "not_equals",
+		OperatorContains:   "contains",
+		OperatorStartsWith: "starts_with",
+		OperatorEndsWith:   "ends_with",
+	}[o]
+	if !ok {
+		return "unknown"
+	}
+	return v
+}
+
 // FindRowsQuery specifies the criteria for searching rows.
+//
+// If both FindRowsQuery.Value and FindRowsQuery.Values present,
+// FindRowsQuery.Value will be added to be one of FindRowsQuery.Values entry.
 type FindRowsQuery struct {
 	// Column is the header name of the column to search.
 	Column string
@@ -444,34 +649,62 @@ type FindRowsQuery struct {
 	Operator Operator
 	// CaseInsensitive indicates whether the comparison should ignore letter case.
 	CaseInsensitive bool
+	// Value is a value to compare against.
+	Value string
 	// Values is a slice of values to compare against.
 	Values []string
 }
 
 func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, error) {
-	idx, exists := t.headerIndex[query.Column]
-	if !exists {
-		return nil, fmt.Errorf("%w: %s", ErrColumnNotFound, query.Column)
+	cVals, err := t.GetColumn(query.Column)
+	if err != nil {
+		return nil, err
+	}
+	if query.Value != "" {
+		query.Values = append(query.Values, query.Value)
 	}
 
-	var matchedRows [][]string
-	for _, row := range t.rows {
-		cellValue := row[idx]
+	matchedIndexesUnique := make(map[int]struct{})
+
+	if query.Operator == OperatorNotEquals {
+		// For filtering, a row must be not equal to every query value.
+		for i, target := range cVals {
+			meetsAll := true
+			for _, qVal := range query.Values {
+				if !match(query.Operator, target, qVal, query.CaseInsensitive) {
+					meetsAll = false
+					break
+				}
+			}
+			if meetsAll {
+				matchedIndexesUnique[i] = struct{}{}
+			}
+		}
+	} else {
+		// For other operators, a row is selected if it meets the condition for any query value.
 		for _, qVal := range query.Values {
-			if match(query.Operator, cellValue, qVal, query.CaseInsensitive) {
-				matchedRows = append(matchedRows, row)
-				break
+			for i, target := range cVals {
+				if match(query.Operator, target, qVal, query.CaseInsensitive) {
+					matchedIndexesUnique[i] = struct{}{}
+				}
 			}
 		}
 	}
-
-	if len(matchedRows) == 0 {
+	if len(matchedIndexesUnique) == 0 {
 		return nil, fmt.Errorf("%w: no rows found where column '%s' matches criteria", ErrNoRowsFound, query.Column)
 	}
-	return NewWithData(matchedRows, t.header...)
+	var matchedIndexes []int
+	for idx := range matchedIndexesUnique {
+		matchedIndexes = append(matchedIndexes, idx)
+	}
+	nm, err := t.GetRows(matchedIndexes...)
+	if err != nil {
+		return nil, err
+	}
+	return nm, nil
 }
 
-func (t *bDataMatrix) SortBy(keys ...string) error {
+func (t *bDataMatrix) sortBy(isAsc bool, keys ...string) error {
 	if len(keys) == 0 {
 		keys = t.header
 	}
@@ -484,11 +717,30 @@ func (t *bDataMatrix) SortBy(keys ...string) error {
 		for _, h := range keys {
 			idx := t.headerIndex[h]
 			if t.rows[i][idx] != t.rows[j][idx] {
-				return t.rows[i][idx] < t.rows[j][idx]
+				if isAsc {
+					return t.rows[i][idx] < t.rows[j][idx]
+				}
+				return t.rows[i][idx] > t.rows[j][idx]
 			}
 		}
 		return false
 	})
+	return nil
+}
+
+func (t *bDataMatrix) SortByDesc(keys ...string) error {
+	err := t.sortBy(false, keys...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *bDataMatrix) SortByAsc(keys ...string) error {
+	err := t.sortBy(true, keys...)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -501,132 +753,152 @@ func (t *bDataMatrix) Rows() [][]string {
 }
 
 func (t *bDataMatrix) Data(withHeader bool) [][]string {
-	data := make([][]string, 0, len(t.rows))
+	data := make([][]string, 0, t.LenRows())
 	if withHeader {
-		data = make([][]string, 0, len(t.rows)+1)
+		data = make([][]string, 0, t.LenRows()+1)
 		data = append(data, t.header)
 	}
 	data = append(data, t.rows...)
 	return data
 }
 
+func (t *bDataMatrix) DataMap() []map[string]string {
+	data := make([]map[string]string, t.LenRows())
+	for i, row := range t.rows {
+		obj := make(map[string]string)
+		for j, key := range t.header {
+			obj[key] = row[j]
+		}
+		data[i] = obj
+	}
+	return data
+}
+
+func (t *bDataMatrix) Copy() BDataMatrix {
+	newHeader := make([]string, len(t.header))
+	copy(newHeader, t.header)
+	newRows := make([][]string, len(t.rows))
+	for i, row := range t.rows {
+		newRow := make([]string, len(row))
+		copy(newRow, row)
+		newRows[i] = newRow
+	}
+	newHeaderIndex := make(map[string]int, len(t.headerIndex))
+	for key, value := range t.headerIndex {
+		newHeaderIndex[key] = value
+	}
+	return &bDataMatrix{
+		header:      newHeader,
+		rows:        newRows,
+		headerIndex: newHeaderIndex,
+	}
+}
+
+func (t *bDataMatrix) LenColumns() int {
+	return len(t.header)
+}
+
+func (t *bDataMatrix) LenRows() int {
+	return len(t.rows)
+}
+
 func (t *bDataMatrix) Clear() {
 	t.rows = [][]string{}
 }
 
-func (t *bDataMatrix) Preview() {
-	if len(t.header) == 0 {
-		fmt.Println("No data available.")
-		return
-	}
+func (t *bDataMatrix) Peek() {
+	t.PeekN(5)
+}
 
-	colWidths := make([]int, len(t.header))
-	for i, col := range t.header {
-		colWidths[i] = len(col)
+func (t *bDataMatrix) PeekN(n int) {
+	if n <= 0 {
+		n = 10
 	}
-	for _, row := range t.rows {
-		for i, cell := range row {
-			if len(cell) > colWidths[i] {
-				colWidths[i] = len(cell)
-			}
+	n = min(n, t.LenRows()) // Ensure n does not exceed total rows
+
+	// Calculate maximum width for each column relative to the first n rows.
+	widths := make([]int, t.LenColumns())
+	for i, h := range t.header {
+		widths[i] = len(h)
+	}
+	for i := 0; i < n; i++ { // Only iterate over the first n rows
+		for j, cell := range t.rows[i] {
+			widths[j] = max(widths[j], len(cell))
 		}
 	}
 
+	// Helper to print a separator line.
 	printSeparator := func() {
-		for _, width := range colWidths {
-			fmt.Print("+", strings.Repeat("-", width+2))
+		fmt.Print("+")
+		for _, w := range widths {
+			fmt.Print(strings.Repeat("-", w+2), "+")
 		}
-		fmt.Println("+")
+		fmt.Println()
 	}
 
-	printRow := func(cells []string) {
-		for i, cell := range cells {
-			fmt.Printf("| %-*s ", colWidths[i], cell)
+	// Helper to print a row.
+	printRow := func(row []string) {
+		fmt.Print("|")
+		for i, cell := range row {
+			fmt.Printf(" %-*s |", widths[i], cell)
 		}
-		fmt.Println("|")
+		fmt.Println()
 	}
 
 	printSeparator()
 	printRow(t.header)
 	printSeparator()
-	for _, row := range t.rows {
-		printRow(row)
+	for i := 0; i < n; i++ {
+		printRow(t.rows[i])
 	}
 	printSeparator()
+
+	if n < t.LenRows() {
+		fmt.Printf("...and %d more rows are not shown (out of %d total).\n", t.LenRows()-n, t.LenRows())
+	}
 }
 
 func (t *bDataMatrix) ToCSV(withHeader bool) Output {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
+	defer writer.Flush()
 	if err := writer.WriteAll(t.Data(withHeader)); err != nil {
 		return &outputData{data: []byte(fmt.Sprintf("error writing CSV: %v", err))}
 	}
-	writer.Flush()
 	return &outputData{data: buf.Bytes()}
 }
 
 func (t *bDataMatrix) ToTSV(withHeader bool) Output {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
+	defer writer.Flush()
 	writer.Comma = '\t'
 	if err := writer.WriteAll(t.Data(withHeader)); err != nil {
 		return &outputData{data: []byte(fmt.Sprintf("error writing TSV: %v", err))}
 	}
-	writer.Flush()
 	return &outputData{data: buf.Bytes()}
 }
 
-func (t *bDataMatrix) ToYAML(withHeader bool) Output {
-	var data interface{}
-	if withHeader {
-		result := make([]map[string]string, 0, len(t.rows))
-		for _, row := range t.rows {
-			m := make(map[string]string)
-			for i, header := range t.header {
-				m[header] = row[i]
-			}
-			result = append(result, m)
-		}
-		data = result
+func (t *bDataMatrix) ToJSON(compact bool) Output {
+	var output []byte
+	var err error
+	if compact {
+		output, err = json.Marshal(t.DataMap())
 	} else {
-		data = t.rows
+		output, err = json.MarshalIndent(t.DataMap(), "", "  ")
 	}
-	out, err := yaml.Marshal(data)
 	if err != nil {
-		out = []byte(fmt.Sprintf("error encoding YAML: %v", err))
+		return nil
 	}
-	return &outputData{data: out}
+	return &outputData{data: output}
 }
 
-func (t *bDataMatrix) ToJSON(withHeader, compact bool) Output {
-	var out []byte
-	var err error
-
-	if withHeader {
-		result := make([]map[string]string, 0, len(t.rows))
-		for _, row := range t.rows {
-			m := make(map[string]string)
-			for i, header := range t.header {
-				m[header] = row[i]
-			}
-			result = append(result, m)
-		}
-		if compact {
-			out, err = json.Marshal(result)
-		} else {
-			out, err = json.MarshalIndent(result, "", "\t")
-		}
-	} else {
-		if compact {
-			out, err = json.Marshal(t.rows)
-		} else {
-			out, err = json.MarshalIndent(t.rows, "", "\t")
-		}
-	}
+func (t *bDataMatrix) ToYAML() Output {
+	output, err := yaml.Marshal(t.DataMap())
 	if err != nil {
-		out = []byte(fmt.Sprintf("error encoding JSON: %v", err))
+		return nil
 	}
-	return &outputData{data: out}
+	return &outputData{data: output}
 }
 
 func (t *bDataMatrix) ToCustom(withHeader bool, separator string) Output {
@@ -639,6 +911,32 @@ func (t *bDataMatrix) ToCustom(withHeader bool, separator string) Output {
 		}
 	}
 	return &outputData{data: []byte(sb.String())}
+}
+
+func (t *bDataMatrix) ContainsValue(key string, value string) (bool, error) {
+	cValue, err := t.GetColumn(key)
+	if err != nil {
+		return false, ErrColumnNotFound
+	}
+
+	for _, val := range cValue {
+		if val == value {
+			return true, nil
+		}
+	}
+	return false, ErrNoRowsFound
+}
+
+func (t *bDataMatrix) calculateHeaderIndex() error {
+	t.headerIndex = make(map[string]int)
+	for i, h := range t.header {
+		if _, ok := t.headerIndex[h]; !ok {
+			t.headerIndex[h] = i
+			continue
+		}
+		return fmt.Errorf("%w: %s", ErrDuplicateHeader, h)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -665,23 +963,22 @@ func (o *outputData) String() string {
 // Utils
 // ---------------------------------------------------------------------------------------------------------------------
 
-func match(op Operator, cell, queryValue string, caseInsensitive bool) bool {
+func match(op Operator, cVal, qVal string, caseInsensitive bool) bool {
 	if caseInsensitive {
-		cell = strings.ToLower(cell)
-		queryValue = strings.ToLower(queryValue)
+		cVal = strings.ToLower(cVal)
+		qVal = strings.ToLower(qVal)
 	}
-
 	switch op {
 	case OperatorEquals:
-		return cell == queryValue
+		return cVal == qVal
 	case OperatorNotEquals:
-		return cell != queryValue
+		return cVal != qVal
 	case OperatorContains:
-		return strings.Contains(cell, queryValue)
+		return strings.Contains(cVal, qVal)
 	case OperatorStartsWith:
-		return strings.HasPrefix(cell, queryValue)
+		return strings.HasPrefix(cVal, qVal)
 	case OperatorEndsWith:
-		return strings.HasSuffix(cell, queryValue)
+		return strings.HasSuffix(cVal, qVal)
 	default:
 		return false
 	}

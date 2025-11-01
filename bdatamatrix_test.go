@@ -212,23 +212,87 @@ func TestFindRows(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when no rows match, got nil")
 	}
+
+	// Test operator not equals.
+	queryNotEquals := FindRowsQuery{
+		Column:          "Name",
+		Operator:        OperatorNotEquals,
+		CaseInsensitive: true,
+		Values:          []string{"Alice"},
+	}
+	subMatrix, err = matrix.FindRows(queryNotEquals)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(subMatrix.Rows()) != 1 {
+		t.Fatalf("expected 1 rows matching query, got %d", len(subMatrix.Rows()))
+	}
+
+	// Test search one value.
+	queryValue := FindRowsQuery{
+		Column:          "Name",
+		Operator:        OperatorEquals,
+		CaseInsensitive: true,
+		Value:           "Alice",
+	}
+	subMatrix, err = matrix.FindRows(queryValue)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(subMatrix.Rows()) != 2 {
+		t.Fatalf("expected 2 rows matching query, got %d", len(subMatrix.Rows()))
+	}
+
+	// Test not match column.
+	queryNotMatchColumn := FindRowsQuery{
+		Column:          "Age",
+		Operator:        OperatorEquals,
+		CaseInsensitive: true,
+		Value:           "Alice",
+	}
+	_, err = matrix.FindRows(queryNotMatchColumn)
+	if err == nil {
+		t.Fatalf("expected error, doesn't have match column got %v", err)
+	}
+
 }
 
-// TestSortBy tests SortBy.
-func TestSortBy(t *testing.T) {
+// TestSortByDesc tests SortByDesc.
+func TestSortByDesc(t *testing.T) {
 	matrix, _ := New("ID", "Name")
 	matrix.AddRow("2", "Bob")
 	matrix.AddRow("1", "Alice")
-	err := matrix.SortBy("ID")
+	err := matrix.SortByDesc("ID")
 	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+		t.Fatalf("expected error, got %v", err)
+	}
+	row, _ := matrix.GetRow(0)
+	if row[0] != "2" {
+		t.Fatalf("expected first row ID to be 1 after sorting, got %s", row[0])
+	}
+	// Test sorting by non-existent column.
+	err = matrix.SortByDesc("Age")
+	if err == nil {
+		t.Fatal("expected error when sorting by non-existent column, got nil")
+	}
+}
+
+func TestSortByAsc(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("2", "Bob")
+	matrix.AddRow("1", "Alice")
+	err := matrix.SortByAsc("ID")
+	if err != nil {
+		t.Fatalf("expected error, got %v", err)
 	}
 	row, _ := matrix.GetRow(0)
 	if row[0] != "1" {
 		t.Fatalf("expected first row ID to be 1 after sorting, got %s", row[0])
 	}
 	// Test sorting by non-existent column.
-	err = matrix.SortBy("Age")
+	err = matrix.SortByAsc("Age")
 	if err == nil {
 		t.Fatal("expected error when sorting by non-existent column, got nil")
 	}
@@ -278,7 +342,7 @@ func TestPreview(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	matrix.Preview()
+	matrix.Peek()
 
 	w.Close()
 	var buf bytes.Buffer
@@ -323,7 +387,7 @@ func TestToTSV(t *testing.T) {
 func TestToYAML(t *testing.T) {
 	matrix, _ := New("ID", "Name")
 	matrix.AddRow("1", "Alice")
-	output := matrix.ToYAML(true)
+	output := matrix.ToYAML()
 	yamlData := output.String()
 	var result []map[string]string
 	err := yaml.Unmarshal([]byte(yamlData), &result)
@@ -339,7 +403,7 @@ func TestToYAML(t *testing.T) {
 func TestToJSON(t *testing.T) {
 	matrix, _ := New("ID", "Name")
 	matrix.AddRow("1", "Alice")
-	output := matrix.ToJSON(true, false)
+	output := matrix.ToJSON(false)
 	jsonData := output.String()
 	var result []map[string]string
 	err := json.Unmarshal([]byte(jsonData), &result)
@@ -350,7 +414,7 @@ func TestToJSON(t *testing.T) {
 		t.Fatal("expected one JSON object")
 	}
 	// Test compact JSON output.
-	output = matrix.ToJSON(true, true)
+	output = matrix.ToJSON(true)
 	jsonData = output.String()
 	if strings.Contains(jsonData, "\n") {
 		t.Fatal("expected compact JSON without newlines")
@@ -365,5 +429,139 @@ func TestToCustom(t *testing.T) {
 	customData := output.String()
 	if !strings.Contains(customData, "ID") || !strings.Contains(customData, "Alice") {
 		t.Fatal("custom output missing expected content")
+	}
+}
+
+func TestAddColumn(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("1", "Alice")
+	matrix.AddRow("2", "Bram")
+	matrix.AddRow("3", "John")
+	err := matrix.AddColumn("Age", "20")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = matrix.AddColumn("Gender", "Woman", "Man", "Man")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = matrix.AddColumn("Age", "20")
+	if err == nil {
+		t.Fatalf("expected error duplicate header, got %v", err)
+	}
+
+	err = matrix.AddColumn("Class", "Science", "Math", "Biology", "Physic")
+	if err == nil {
+		t.Fatalf("expected error the length value more than length data, got %v", err)
+	}
+}
+
+func TestAddColumns(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("1", "Alice")
+	matrix.AddColumns("Age", "Gender")
+
+	_, err := matrix.GetColumns("Age", "Gender")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = matrix.AddColumns("Age", "Gender")
+	if err == nil {
+		t.Fatalf("expected error because have duplicate header %v", err)
+	}
+}
+
+func TestGetRowData(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("1", "Alice")
+	_, err := matrix.GetRowData(0, "Name")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	_, err = matrix.GetRowData(0, "Age")
+	if err == nil {
+		t.Fatalf("expected error, because doesn't have column age. got %v", err)
+	}
+
+	_, err = matrix.GetRowData(1, "Name")
+	if err == nil {
+		t.Fatalf("expected error, because the row data only have 1 on index 0. got %v", err)
+	}
+}
+
+func TestUpdateRowColumn(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("1", "Alice")
+	err := matrix.UpdateRowColumn(0, "Name", "Bram")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = matrix.UpdateRowColumn(0, "Age", "Bram")
+	if err == nil {
+		t.Fatalf("expected error, because doesn't have column Age %v", err)
+	}
+
+	err = matrix.UpdateRowColumn(1, "Name", "Bram")
+	if err == nil {
+		t.Fatalf("expected error, because doesn't have row index 1 %v", err)
+	}
+}
+
+func TestDeleteColumn(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("1", "Alice")
+	err := matrix.DeleteColumn("Name")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = matrix.DeleteColumn("Age")
+	if err == nil {
+		t.Fatalf("expected error, because doesn't have column Age. got %v", err)
+	}
+
+	err = matrix.DeleteColumn("ID")
+	if err == nil {
+		t.Fatalf("expected error, because can't delete if the column have only 1. got %v", err)
+	}
+}
+
+func TestDeleteEmptyColumns(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("1", "Alice")
+	err := matrix.DeleteEmptyColumns()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestCopy(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("1", "Alice")
+	matrix.Copy()
+}
+
+func Test_bDataMatrix_ContainsValue(t *testing.T) {
+	matrix, _ := New("ID", "Name")
+	matrix.AddRow("1", "Alice")
+
+	_, err := matrix.ContainsValue("Name", "Alice")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	_, err = matrix.ContainsValue("Name", "bram")
+	if err == nil {
+		t.Fatalf("expected error, not found value bram %v", err)
+	}
+
+	_, err = matrix.ContainsValue("Class", "bram")
+	if err == nil {
+		t.Fatalf("expected error, not found key column %v", err)
 	}
 }
