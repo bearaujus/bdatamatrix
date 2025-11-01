@@ -259,86 +259,6 @@ func TestFindRows(t *testing.T) {
 
 }
 
-func Test_FindRowsWithHistories(t *testing.T) {
-	matrix, _ := New("ID", "Name")
-	matrix.AddRow("1", "Alice")
-	matrix.AddRow("2", "Bob")
-	matrix.AddRow("3", "alice")
-	// Test operator equals.
-	query := FindRowsQuery{
-		Column:          "Name",
-		Operator:        OperatorEquals,
-		CaseInsensitive: true,
-		Values:          []string{"Alice"},
-	}
-	subMatrix, subMatrix2, err := matrix.FindRowsWithHistories(query)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(subMatrix.Rows()) != 2 {
-		t.Fatalf("expected 1 rows matching query, got %d", len(subMatrix.Rows()))
-	}
-
-	if len(subMatrix2.Rows()) != 1 {
-		t.Fatalf("expected 1 rows matching query, got %d", len(subMatrix.Rows()))
-	}
-
-	// Test operator not equals.
-	queryNotEquals := FindRowsQuery{
-		Column:          "Name",
-		Operator:        OperatorNotEquals,
-		CaseInsensitive: true,
-		Values:          []string{"Alice"},
-	}
-	subMatrixNotEquals, _, err := matrix.FindRowsWithHistories(queryNotEquals)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(subMatrixNotEquals.Rows()) != 1 {
-		t.Fatalf("expected 1 rows matching query, got %d", len(subMatrixNotEquals.Rows()))
-	}
-
-	// Test not match values.
-	queryNotMatch := FindRowsQuery{
-		Column:          "Name",
-		Operator:        OperatorEquals,
-		CaseInsensitive: true,
-		Values:          []string{"Bram"},
-	}
-	_, _, err = matrix.FindRowsWithHistories(queryNotMatch)
-	if err == nil {
-		t.Fatalf("expected error, because doesn't have matches value got %v", err)
-	}
-
-	// Test not match column.
-	queryNotMatchColumn := FindRowsQuery{
-		Column:          "Age",
-		Operator:        OperatorEquals,
-		CaseInsensitive: true,
-		Values:          []string{"Bram"},
-	}
-	_, _, err = matrix.FindRowsWithHistories(queryNotMatchColumn)
-	if err == nil {
-		t.Fatalf("expected error, because doesn't have matches column got %v", err)
-	}
-
-	// Test
-	queryValue := FindRowsQuery{
-		Column:          "Name",
-		Operator:        OperatorEquals,
-		CaseInsensitive: true,
-		Value:           "Alice",
-	}
-	subMatrixValue, _, err := matrix.FindRowsWithHistories(queryValue)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(subMatrixValue.Rows()) != 2 {
-		t.Fatalf("expected 2 rows matching query, got %d", len(subMatrixNotEquals.Rows()))
-	}
-
-}
-
 // TestSortByDesc tests SortByDesc.
 func TestSortByDesc(t *testing.T) {
 	matrix, _ := New("ID", "Name")
@@ -630,7 +550,7 @@ func Test_bDataMatrix_ContainsValue(t *testing.T) {
 	matrix, _ := New("ID", "Name")
 	matrix.AddRow("1", "Alice")
 
-	_, err := matrix.ContainsValue("Name", "alice")
+	_, err := matrix.ContainsValue("Name", "Alice")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

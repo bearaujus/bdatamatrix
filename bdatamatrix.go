@@ -39,7 +39,7 @@ type BDataMatrix interface {
 	//
 	// Returns:
 	// 	 - The value of row at the specified index.
-	//   - An error if writing fails.
+	//   - An error if query fails.
 	GetRow(index int) ([]string, error)
 
 	// GetRows retrieves multiple rows by indexes.
@@ -49,7 +49,7 @@ type BDataMatrix interface {
 	//
 	// Returns:
 	// 	 - The value of rows at the specified indexes.
-	//   - An error if writing fails.
+	//   - An error if query fails.
 	GetRows(indexes ...int) (BDataMatrix, error)
 
 	// GetColumn retrieves a column by name.
@@ -59,7 +59,7 @@ type BDataMatrix interface {
 	//
 	// Returns:
 	// 	 - The value of column at the specified key.
-	//   - An error if writing fails.
+	//   - An error if query fails.
 	GetColumn(key string) ([]string, error)
 
 	// GetColumns retrieves multiple columns by names.
@@ -97,32 +97,23 @@ type BDataMatrix interface {
 	//   - query: Have struct FindRowsQuery need to be filled.
 	// Returns:
 	//   - The value based on parameter query.
-	//   - An error if writing fails.
+	//   - An error if query fails.
 	FindRows(query FindRowsQuery) (BDataMatrix, error)
-
-	// FindRowsWithHistories searches for rows matching a given query with histories.
-	//
-	// Parameters:
-	//   - query: Have struct FindRowsQuery need to be filled.
-	// Returns:
-	//   - The value based on parameter query and history of match the data.
-	//   - An error if writing fails.
-	FindRowsWithHistories(query FindRowsQuery) (BDataMatrix, BDataMatrix, error)
 
 	// SortByDesc sorts rows by descending based on one or more column names.
 	//
 	// Parameters:
 	//   - keys : The names of the columns to sorting.
 	// Returns:
-	//   - An error if writing fails.
+	//   - An error if query fails.
 	SortByDesc(keys ...string) error
 
-	// SortByDesc sorts rows by ascending based on one or more column names.
+	// SortByAsc sorts rows by ascending based on one or more column names.
 	//
 	// Parameters:
 	//   - keys : The names of the columns to sorting.
 	// Returns:
-	//   - An error if writing fails.
+	//   - An error if query fails.
 	SortByAsc(keys ...string) error
 
 	// Header returns the header row of the matrix.
@@ -141,9 +132,6 @@ type BDataMatrix interface {
 
 	// Clear removes all rows from the matrix.
 	Clear()
-
-	// Preview displays the first N rows of the matrix.
-	Preview(n int)
 
 	// ToCSV exports the matrix to CSV format.
 	//
@@ -227,8 +215,8 @@ type BDataMatrix interface {
 	//   - key: The naming of columns.
 	//
 	// Returns:
-	//   - The value of the spesific index row and column.
-	//   - An error if writing fails.
+	//   - The value of the specific index row and column.
+	//   - An error if query fails.
 	GetRowData(index int, key string) (string, error)
 
 	// UpdateRowColumn updates a specific cell value in a row and column.
@@ -253,7 +241,7 @@ type BDataMatrix interface {
 	// DeleteEmptyColumns removes all empty columns from the matrix.
 	DeleteEmptyColumns() error
 
-	// ContainsValue
+	// ContainsValue checks whether a specific value exists within a given column in the matrix.
 	ContainsValue(key string, value string) (bool, error)
 
 	// LenColumns returns the number of columns in the matrix.
@@ -268,8 +256,27 @@ type BDataMatrix interface {
 	// Copy creates a deep copy of the matrix.
 	Copy() BDataMatrix
 
-	// Peek prints a preview of the matrix.
+	// Peek prints a preview for the first 5 rows from the matrix.
+	// Example output:
+	//     +----+-------+-----+
+	//     | ID | Name  | Age |
+	//     +----+-------+-----+
+	//     | 1  | Alice | 30  |
+	//     | 2  | Bob   | 25  |
+	//     | 3  | alice | 28  |
+	//     +----+-------+-----+
 	Peek()
+
+	// PeekN prints a preview for the first N rows from the matrix.
+	// Example output:
+	//     +----+-------+-----+
+	//     | ID | Name  | Age |
+	//     +----+-------+-----+
+	//     | 1  | Alice | 30  |
+	//     | 2  | Bob   | 25  |
+	//     | 3  | alice | 28  |
+	//     +----+-------+-----+
+	PeekN(n int)
 }
 
 // New create a new BDataMatrix with the provided headers.
@@ -299,7 +306,7 @@ type BDataMatrix interface {
 //	}
 //
 //	// Preview the matrix.
-//	matrix.Preview()
+//	matrix.Peek()
 //
 //	// Export as CSV (with header) and write to file.
 //	csvOut := matrix.ToCSV(true)
@@ -332,7 +339,7 @@ func New(keys ...string) (BDataMatrix, error) {
 //	}
 //
 //	// Preview the matrix.
-//	matrix.Preview()
+//	matrix.Peek()
 //
 //	// Export as JSON (compact format).
 //	jsonOut := matrix.ToJSON(true, true)
@@ -648,89 +655,6 @@ type FindRowsQuery struct {
 	Values []string
 }
 
-const (
-	FindRowsQueryStatus_Entries       = "entries"
-	FindRowsQueryStatus_MeetCondition = "meet_condition"
-)
-
-func (t *bDataMatrix) FindRowsWithHistories(query FindRowsQuery) (BDataMatrix, BDataMatrix, error) {
-	cVals, err := t.GetColumn(query.Column)
-	if err != nil {
-		return nil, nil, err
-	}
-	qs, err := New(FindRowsQueryStatus_Entries, FindRowsQueryStatus_MeetCondition)
-	if err != nil {
-		return nil, nil, err
-	}
-	if query.Value != "" {
-		query.Values = append(query.Values, query.Value)
-	}
-
-	matchedIndexesUnique := make(map[int]struct{})
-
-	if query.Operator == OperatorNotEquals {
-		// For each query value, record whether there is at least one row
-		// that is not equal to that value.
-		for _, qVal := range query.Values {
-			var found bool
-			for _, target := range cVals {
-				if match(query.Operator, target, qVal, query.CaseInsensitive) {
-					found = true
-					break
-				}
-			}
-			if err = qs.AddRow(qVal, fmt.Sprint(found)); err != nil {
-				return nil, nil, err
-			}
-		}
-		// For filtering, a row must be not equal to every query value.
-		for i, target := range cVals {
-			meetsAll := true
-			for _, qVal := range query.Values {
-				if !match(query.Operator, target, qVal, query.CaseInsensitive) {
-					meetsAll = false
-					break
-				}
-			}
-			if meetsAll {
-				matchedIndexesUnique[i] = struct{}{}
-			}
-		}
-	} else {
-		// For other operators, a row is selected if it meets the condition for any query value.
-		for _, qVal := range query.Values {
-			var found bool
-			for i, target := range cVals {
-				if match(query.Operator, target, qVal, query.CaseInsensitive) {
-					matchedIndexesUnique[i] = struct{}{}
-					found = true
-				}
-			}
-			if err = qs.AddRow(qVal, fmt.Sprint(found)); err != nil {
-				return nil, nil, err
-			}
-		}
-	}
-
-	if qs.LenRows() != 0 {
-		if err = qs.SortByAsc(FindRowsQueryStatus_MeetCondition, FindRowsQueryStatus_Entries); err != nil {
-			return nil, nil, err
-		}
-	}
-	if len(matchedIndexesUnique) == 0 {
-		return nil, nil, fmt.Errorf("%w: no rows found where column '%s' matches criteria", ErrNoRowsFound, query.Column)
-	}
-	var matchedIndexes []int
-	for idx := range matchedIndexesUnique {
-		matchedIndexes = append(matchedIndexes, idx)
-	}
-	nm, err := t.GetRows(matchedIndexes...)
-	if err != nil {
-		return nil, nil, err
-	}
-	return nm, qs, nil
-}
-
 func (t *bDataMatrix) FindRows(query FindRowsQuery) (BDataMatrix, error) {
 	cVals, err := t.GetColumn(query.Column)
 	if err != nil {
@@ -795,10 +719,8 @@ func (t *bDataMatrix) sortBy(isAsc bool, keys ...string) error {
 			if t.rows[i][idx] != t.rows[j][idx] {
 				if isAsc {
 					return t.rows[i][idx] < t.rows[j][idx]
-				} else {
-					return t.rows[i][idx] > t.rows[j][idx]
 				}
-
+				return t.rows[i][idx] > t.rows[j][idx]
 			}
 		}
 		return false
@@ -885,10 +807,10 @@ func (t *bDataMatrix) Clear() {
 }
 
 func (t *bDataMatrix) Peek() {
-	t.Preview(5)
+	t.PeekN(5)
 }
 
-func (t *bDataMatrix) Preview(n int) {
+func (t *bDataMatrix) PeekN(n int) {
 	if n <= 0 {
 		n = 10
 	}
@@ -939,21 +861,21 @@ func (t *bDataMatrix) Preview(n int) {
 func (t *bDataMatrix) ToCSV(withHeader bool) Output {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
+	defer writer.Flush()
 	if err := writer.WriteAll(t.Data(withHeader)); err != nil {
 		return &outputData{data: []byte(fmt.Sprintf("error writing CSV: %v", err))}
 	}
-	writer.Flush()
 	return &outputData{data: buf.Bytes()}
 }
 
 func (t *bDataMatrix) ToTSV(withHeader bool) Output {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
+	defer writer.Flush()
 	writer.Comma = '\t'
 	if err := writer.WriteAll(t.Data(withHeader)); err != nil {
 		return &outputData{data: []byte(fmt.Sprintf("error writing TSV: %v", err))}
 	}
-	writer.Flush()
 	return &outputData{data: buf.Bytes()}
 }
 
@@ -998,11 +920,11 @@ func (t *bDataMatrix) ContainsValue(key string, value string) (bool, error) {
 	}
 
 	for _, val := range cValue {
-		if strings.ContainsAny(val, value) {
+		if val == value {
 			return true, nil
 		}
 	}
-	return false, fmt.Errorf("not contains value")
+	return false, ErrNoRowsFound
 }
 
 func (t *bDataMatrix) calculateHeaderIndex() error {
